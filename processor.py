@@ -1,29 +1,20 @@
-import streamlit as st
+import cv2
 import numpy as np
-from PIL import Image
-import io
-st.set_page_config(page_title="Photoshop HDR Mimic", layout="wide")
 
-st.sidebar.title("Photoshop Controls")
-# Setting default to 2.3 to match your screenshot exactly
-hdr_val = st.sidebar.slider("HDR Limit", 1.0, 5.0, 2.3)
-
-st.title("📸 Company Self-Service HDR")
-st.write("Upload a photo to apply the Photoshop HDR Preset.")
-
-uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
-
-if uploaded_file:
-    img = Image.open(uploaded_file)
-    # Process
-    res = enhance_image(np.array(img.convert('RGB')), hdr_val)
+def enhance_image(image_np, hdr_power):
+    img = image_np.astype(np.float32) / 255.0
+    img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     
-    col1, col2 = st.columns(2)
-    col1.image(img, caption="Original")
-    col2.image(res, caption=f"HDR Mode (Limit: +{hdr_val})")
+    # High-Key Studio math
+    boost = hdr_power * 0.5
+    img_res = np.power(img_bgr, 1.0 / (1.0 + boost))
+    img_8bit = np.clip(img_res * 255, 0, 255).astype(np.uint8)
     
-    # Download
-    result_pil = Image.fromarray(res)
-    buf = io.BytesIO()
-    result_pil.save(buf, format="PNG")
-    st.download_button("Download HDR Result", buf.getvalue(), "hdr_photo.png")
+    # Local contrast pop
+    lab = cv2.cvtColor(img_8bit, cv2.COLOR_BGR2Lab)
+    l, a, b = cv2.split(lab)
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+    l = clahe.apply(l)
+    img_final = cv2.cvtColor(cv2.merge((l, a, b)), cv2.COLOR_Lab2BGR)
+
+    return cv2.cvtColor(img_final, cv2.COLOR_BGR2RGB)
