@@ -2,8 +2,6 @@ import streamlit as st
 import numpy as np
 from PIL import Image
 import io
-from processor import enhance_image
-
 st.set_page_config(page_title="Photoshop HDR Mimic", layout="wide")
 
 st.sidebar.title("Photoshop Controls")
